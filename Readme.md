@@ -1,3 +1,5 @@
+<img src="assets/icon_1024.png" width="128" />
+
 ## Pepe Translator
 Pepe Translator is a macOS test application built to experiment with OpenAI Realtime API, providing:
 
