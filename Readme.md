@@ -19,6 +19,10 @@ Pepe Translator is a macOS test application built to experiment with OpenAI Real
 - Tkinter GUI
 - macOS app / DMG packaging
 
+### UI
+<img src="assets/ui.png" width="512" />
+
+
 ### Run (Development)
 ```
 /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -m venv venv
