@@ -153,7 +153,7 @@ class RealtimeAPIClient(UIMessageMixin):
 
         try:
             await self.ws.close()
-        except:
+        except Exception:
             pass
 
     # ==========================================================
@@ -180,9 +180,14 @@ class RealtimeAPIClient(UIMessageMixin):
             # The only time you will receive a related server event is when speech is detected and committed (if VAD is enabled),
             # at which point you may receive events like input_audio_buffer.committed,
             # but not as a direct response to each append.
-            await self.ws.send(
-                json.dumps({"type": "input_audio_buffer.append", "audio": enc})
-            )
+            try:
+                await self.ws.send(
+                    json.dumps({"type": "input_audio_buffer.append", "audio": enc})
+                )
+            except Exception as e:
+                self.ui_msg(UIMessageType.SYS_LOG, f"❌ Send error:{e}")
+                continue
+
             total_bytes = sum(len(x) for x in pending_pcm)
 
             if total_bytes < (
@@ -228,16 +233,28 @@ class RealtimeAPIClient(UIMessageMixin):
                 # such as transcription events (conversation.item.input_audio_transcription.delta and
                 # conversation.item.input_audio_transcription.completed)
                 # if transcription is enabled in your session
-                await self.ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-                self.ui_msg(UIMessageType.SYS_LOG, f"🎯 Commit volume:{volume}")
-                last_commit = now
-                pending_pcm.clear()
+                try:
+                    await self.ws.send(
+                        json.dumps({"type": "input_audio_buffer.commit"})
+                    )
+                    self.ui_msg(UIMessageType.SYS_LOG, f"🎯 Commit volume:{volume}")
+                    last_commit = now
+                    pending_pcm.clear()
+                except Exception as e:
+                    self.ui_msg(UIMessageType.SYS_LOG, f"❌ Send error:{e}")
+                    continue
+
                 await asyncio.sleep(0.05)
 
                 # Sending translation event
                 if self.translation_queue:
                     next_text = self.translation_queue.pop(0)
-                    await self.send_translation(next_text)
+                    try:
+                        await self.send_translation(next_text)
+                    except Exception as e:
+                        self.translation_queue.insert(0, next_text)
+                        self.ui_msg(UIMessageType.SYS_LOG, f"❌ Send error:{e}")
+                        continue
 
         raise asyncio.CancelledError()
 
