@@ -5,11 +5,16 @@ from core.config_manager import ConfigManager
 from core.audio_manager import AudioStreamManager
 from core.message_types import UIMessageMixin, UIMessageType
 from core.realtime_api_manager import RealtimeAPIClient
+
+from core.config_keyingstorage import KeyringStorage
 from queue import Queue, Empty
 import datetime
 
 ui_queue = Queue()
 UIMessageMixin.set_ui_queue(ui_queue)
+
+
+ConfigManager.configure(KeyringStorage())
 
 
 # =====================
@@ -131,7 +136,9 @@ def show_apikey_dialog(parent):
     # 複数行入力
     text_widget = tk.Text(dialog, height=3, font=("Arial", 12))
     text_widget.pack(fill="x", padx=10, pady=5, expand=True)
-    text_widget.insert("1.0", ConfigManager().get_api_key() or "")
+    text_widget.insert(
+        "1.0", ConfigManager().get_api_key() or ""
+    )
     text_widget.focus()
 
     result = {"value": None}

@@ -10,7 +10,6 @@ from core.config_manager import ConfigManager
 from core.audio_manager import AudioStreamManager
 from core.message_types import UIMessageType, UIMessageMixin
 
-
 WS_URL = "wss://api.openai.com/v1/realtime?model=gpt-realtime-mini"
 
 
@@ -101,7 +100,10 @@ class RealtimeAPIClient(UIMessageMixin):
     async def _connect_and_run(self):
         """Connect → configure session → run sender + receiver"""
         headers = [
-            ("Authorization", f"Bearer {ConfigManager().get_api_key()}"),
+            (
+                "Authorization",
+                f"Bearer {ConfigManager().get_api_key()}",
+            ),
             ("OpenAI-Beta", "realtime=v1"),
         ]
 

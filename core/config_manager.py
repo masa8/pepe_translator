@@ -1,70 +1,46 @@
-import json
-from pathlib import Path
 import threading
+from core.config_filestorage import FileStorage
 
 
 class ConfigManager:
     _instance = None
     _lock = threading.Lock()
+    _backend = None  # plugin for saving config
 
-    def __new__(cls, *args, **kwargs):
+    @classmethod
+    def configure(cls, backend):
+        if cls._instance is not None:
+            raise RuntimeError("ConfigManager is already initialized")
+        cls._backend = backend
+
+    def __new__(cls):
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(ConfigManager, cls).__new__(cls)
+                cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
         if hasattr(self, "_initialized") and self._initialized:
-            return  # Avoid running initialization twice
+            return
 
-        self.config_path = (
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "PepeTranslator"
-            / "config.json"
-        )
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.__class__._backend is None:
+            raise RuntimeError("ConfigManager is not configured")
 
-        self._data = {}
-        self._load()
-
+        self.backend = self.__class__._backend
         self._initialized = True
-
-    # ---------------------------------------------------------
-    # Internal load/save
-    # ---------------------------------------------------------
-
-    def _load(self):
-        if self.config_path.exists():
-            try:
-                with open(self.config_path, "r") as f:
-                    self._data = json.load(f)
-            except Exception:
-                self._data = {}
-        else:
-            self._data = {}
-
-    def _save(self):
-        with open(self.config_path, "w") as f:
-            json.dump(self._data, f, indent=2)
-
-    # ---------------------------------------------------------
-    # Public API
-    # ---------------------------------------------------------
 
     def get(self, key, default=None):
         return self._data.get(key, default)
 
     def set(self, key, value):
         self._data[key] = value
-        self._save()
+        self.backend.save(self._data)
 
     def get_api_key(self):
-        return self.get("API_KEY")
+        return self.backend.get_secret("API_KEY")
 
     def set_api_key(self, key):
-        self.set("API_KEY", key)
+        self.backend.set_secret("API_KEY", key)
 
     def all(self):
         return dict(self._data)
