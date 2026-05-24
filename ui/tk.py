@@ -4,7 +4,10 @@ from tkinter import ttk
 from core.config_manager import ConfigManager
 from core.audio_manager import AudioStreamManager
 from core.message_types import UIMessageMixin, UIMessageType
-from core.realtime_api_manager import RealtimeAPIClient
+from core.realtime_api_manager import (
+    RealtimeAPIClient,
+    DEFAULT_TRANSLATION_INSTRUCTIONS,
+)
 
 from core.config_keyingstorage import KeyringStorage
 from queue import Queue, Empty
@@ -98,6 +101,18 @@ def action_close_apikey_dialog(key):
         ui_queue.put({"type": UIMessageType.SYS_LOG, "text": "🧐 No API Key provided"})
 
 
+def action_save_prompt(prompt_widget):
+    prompt = prompt_widget.get("1.0", "end").strip()
+    if prompt:
+        ConfigManager().set_prompt(prompt)
+        RealtimeAPIClient().set_translation_prompt(prompt)
+        ui_queue.put({"type": UIMessageType.SYS_LOG, "text": "📝 Prompt saved."})
+    else:
+        ui_queue.put(
+            {"type": UIMessageType.SYS_LOG, "text": "⚠️ Prompt is empty; not saved."}
+        )
+
+
 def action_open_ui():
     action_init()
     ui_queue.put(
@@ -136,9 +151,7 @@ def show_apikey_dialog(parent):
     # 複数行入力
     text_widget = tk.Text(dialog, height=3, font=("Arial", 12))
     text_widget.pack(fill="x", padx=10, pady=5, expand=True)
-    text_widget.insert(
-        "1.0", ConfigManager().get_api_key() or ""
-    )
+    text_widget.insert("1.0", ConfigManager().get_api_key() or "")
     text_widget.focus()
 
     result = {"value": None}
@@ -173,10 +186,23 @@ def show_ui(with_apikey_dialog=False):
     root.geometry("600x800")
     root.protocol("WM_DELETE_WINDOW", action_close_ui)
 
+    resize_after_id = None
+    resize_target_width = None
+
+    def apply_wraplength():
+        nonlocal resize_after_id, resize_target_width
+        if resize_target_width and resize_target_width > 100:
+            translated_label.config(wraplength=resize_target_width)
+        resize_after_id = None
+        resize_target_width = None
+
     def on_resize(event):
+        nonlocal resize_after_id, resize_target_width
         new_width = event.width - 40
-        if new_width > 100:
-            translated_label.config(wraplength=new_width)
+        resize_target_width = new_width
+        if resize_after_id is not None:
+            root.after_cancel(resize_after_id)
+        resize_after_id = root.after(100, apply_wraplength)
 
     root.bind("<Configure>", on_resize)
     ## APIKEY DIALOG
@@ -286,6 +312,35 @@ def show_ui(with_apikey_dialog=False):
     device_combo.pack(fill="x", padx=10, pady=5)
     device_combo.bind("<<ComboboxSelected>>", action_change_device)
 
+    prompt_label = tk.Label(
+        root, text="Translation Prompt:", font=("Arial", 11, "bold")
+    )
+    prompt_label.pack(anchor="w", padx=10, pady=(10, 0))
+
+    prompt_frame = tk.Frame(root)
+    prompt_frame.pack(fill="both", padx=10, pady=5, expand=True)
+
+    prompt_text = tk.Text(prompt_frame, height=8, wrap="word")
+    prompt_text.pack(side="left", fill="both", expand=True)
+
+    prompt_scroll = ttk.Scrollbar(
+        prompt_frame, orient="vertical", command=prompt_text.yview
+    )
+    prompt_scroll.pack(side="right", fill="y")
+    prompt_text.config(yscrollcommand=prompt_scroll.set)
+
+    prompt_text.insert(
+        "1.0",
+        ConfigManager().get_prompt(default=DEFAULT_TRANSLATION_INSTRUCTIONS) or "",
+    )
+
+    prompt_save_button = ttk.Button(
+        root,
+        text="Save Prompt",
+        command=lambda: action_save_prompt(prompt_text),
+    )
+    prompt_save_button.pack(anchor="e", padx=10, pady=(0, 10))
+
     # === Button Row ===
     button_row = tk.Frame(root)
     button_row.pack(pady=10)
@@ -348,8 +403,7 @@ def show_ui(with_apikey_dialog=False):
                     volume_text_var.set(f"{float(msg.get('text', 0)):.2f}")
                 elif mtype == UIMessageType.LOG:
                     text = msg.get("text", "")
-                    log_text.insert("end", text + "\n")
-                    log_text.see("end")
+                    sys_log_var.set(text)
                 elif mtype == UIMessageType.AUDIO_STOPPED:
                     volume_var.set(0)
                     volume_text_var.set("0")

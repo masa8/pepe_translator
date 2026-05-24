@@ -27,6 +27,7 @@ class ConfigManager:
             raise RuntimeError("ConfigManager is not configured")
 
         self.backend = self.__class__._backend
+        self._data = self.backend.load() if hasattr(self.backend, "load") else {}
         self._initialized = True
 
     def get(self, key, default=None):
@@ -41,6 +42,18 @@ class ConfigManager:
 
     def set_api_key(self, key):
         self.backend.set_secret("API_KEY", key)
+
+    def get_prompt(self, default=None):
+        storage = FileStorage()
+        data = storage.load()
+        prompt = data.get("PROMPT")
+        return prompt if prompt is not None else default
+
+    def set_prompt(self, prompt):
+        storage = FileStorage()
+        data = storage.load()
+        data["PROMPT"] = prompt
+        storage.save(data)
 
     def all(self):
         return dict(self._data)

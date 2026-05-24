@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 
 
 class UIMessageType(Enum):
@@ -19,6 +20,13 @@ class UIMessageMixin:
         cls.ui_queue = queue
 
     def ui_msg(self, msg_type: UIMessageType, text: str):
+        # Mirror messages to logger so status is visible outside the Tk UI.
+        try:
+            if msg_type != UIMessageType.VOLUME:
+                logging.info("[%s] %s", msg_type.value, text)
+        except Exception:
+            pass
+
         if self.ui_queue:
             try:
                 self.ui_queue.put({"type": msg_type, "text": text})
